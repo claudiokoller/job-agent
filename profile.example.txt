@@ -1,0 +1,10 @@
+- Bachelor-Abschluss in einem relevanten Feld
+- Erste Berufserfahrung in der Privatwirtschaft
+- 1-2 Praktika oder Stationen im Zielbereich (z.B. Fintech / Krypto)
+- Kennt die Branche aus eigener Erfahrung
+- Bevorzugt deutschsprachige Stellen (Englisch ok, aber nicht ideal)
+- Bestimmte Bereiche sind nicht relevant und sollen nicht angezeigt werden
+  (hier eintragen, z.B. Legal/Compliance)
+
+Passe dieses Profil an deinen Werdegang an und speichere es als profile.txt.
+profile.txt ist gitignored und wird nicht eingecheckt.

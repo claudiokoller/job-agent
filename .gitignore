@@ -1,0 +1,16 @@
+# Secrets & persönliche Daten
+.env
+profile.txt
+
+# Daten & Logs
+job_agent.db
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor / Tooling
+.claude/
+.venv/
+venv/

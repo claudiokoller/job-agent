@@ -1,7 +1,8 @@
 """
 job_agent/scraper.py
 Scrapt Jobs von Schweizer Plattformen und direkten Arbeitgeber-Karriereseiten.
-Fokus: Digital Assets, Blockchain, DLT, Fintech – Schweiz.
+Fokus: Digital Assets, Blockchain, DLT, Fintech – Schweiz;
+       allgemeine IT-Stellen – Region Zürich / Zug.
 """
 
 from __future__ import annotations
@@ -99,6 +100,7 @@ def make_id(titel: str, firma: str) -> str:
 # ─── Scraper: LinkedIn ───────────────────────────────────────────────────────
 # LinkedIn rendert Job-Karten server-side für SEO – kein Login nötig.
 
+# Krypto / Digital Assets → ganze Schweiz
 JOBSPY_QUERIES = [
     "digital assets blockchain fintech",
     "Bitcoin DLT custody Schweiz",
@@ -106,10 +108,26 @@ JOBSPY_QUERIES = [
     "fintech payments tokenization",
 ]
 
+# Allgemeine IT-Stellen → nur Region Zürich / Zug
+IT_QUERIES = [
+    "Software Engineer",
+    "Softwareentwickler",
+    "Data Analyst Data Engineer",
+    "IT Business Analyst",
+    "Product Owner IT",
+    "IT Projektleiter",
+    "System Engineer Cloud DevOps",
+    "IT Security Engineer",
+    "Application Manager Applikationsverantwortlicher",
+    "IT Consultant",
+]
+IT_LOCATIONS = ["Zürich, Switzerland", "Zug, Switzerland"]
+IT_DISTANCE_MILES = 15  # ~25 km Umkreis
+
 def scrape_jobspy() -> list[Job]:
     """
     Nutzt python-jobspy um LinkedIn, Indeed und Google Jobs zu scrapen.
-    Umgeht Anti-Bot-Massnahmen automatisch.
+    Krypto-Suchen schweizweit, IT-Suchen im Umkreis von Zürich und Zug.
     """
     if not JOBSPY_AVAILABLE:
         logger.warning("python-jobspy nicht installiert – überspringe")
@@ -118,15 +136,21 @@ def scrape_jobspy() -> list[Job]:
     import warnings
     warnings.filterwarnings("ignore")
 
+    searches = [(q, "Switzerland", None) for q in JOBSPY_QUERIES]
+    searches += [(q, loc, IT_DISTANCE_MILES) for loc in IT_LOCATIONS for q in IT_QUERIES]
+
     jobs = []
     seen: set[str] = set()
 
-    for query in JOBSPY_QUERIES:
+    for query, location, distance in searches:
+        city = location.split(",")[0]
         try:
             df = jobspy_scrape(
                 site_name                = ["linkedin", "indeed", "google"],
                 search_term              = query,
-                location                 = "Switzerland",
+                google_search_term       = f"{query} jobs near {city} since last week",
+                location                 = location,
+                distance                 = distance,
                 results_wanted           = 15,
                 hours_old                = 168,   # letzte 7 Tage
                 country_indeed           = "Switzerland",
@@ -156,7 +180,7 @@ def scrape_jobspy() -> list[Job]:
                     quelle = site.capitalize(),
                 ))
         except Exception as e:
-            logger.warning(f"JobSpy Fehler ({query[:30]}): {e}")
+            logger.warning(f"JobSpy Fehler ({query[:30]} / {city}): {e}")
 
     return _deduplicate(jobs)
 

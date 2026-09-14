@@ -3,7 +3,8 @@
 Ein kleiner Agent, der automatisch Stellenangebote sucht, sie von Claude nach
 deinem persönlichen Profil bewerten lässt und die besten Treffer per Telegram
 schickt. Voreingestellt auf **Digital Assets / Blockchain / Fintech in der
-Schweiz** – lässt sich aber einfach anpassen.
+Schweiz** sowie **allgemeine IT-Stellen in der Region Zürich / Zug** – lässt
+sich aber einfach anpassen.
 
 ## Wie es funktioniert
 
@@ -32,8 +33,9 @@ Telegram-Bot (via [@BotFather](https://t.me/BotFather)).
 | Was | Wo |
 |-----|-----|
 | Dein Profil & Bewertungskriterien | `profile.txt` |
-| Suchbegriffe & Arbeitgeber | `KEYWORDS` / `DIRECT_EMPLOYERS` in `scraper.py` |
-| Mindest-Score zum Senden | `MIN_SCORE` in `filter.py` |
+| Suchbegriffe & Arbeitgeber | `JOBSPY_QUERIES` / `DIRECT_EMPLOYERS` in `scraper.py` |
+| IT-Suchbegriffe, Orte & Umkreis | `IT_QUERIES` / `IT_LOCATIONS` / `IT_DISTANCE_MILES` in `scraper.py` |
+| Mindest-Score & max. Jobs pro Sendung | `MIN_SCORE` / `MAX_JOBS` in `filter.py` |
 
 ## Automatisieren
 

@@ -1,6 +1,6 @@
 """
 job_agent/main.py
-Schweizer Jobsuche – Digital Assets / Blockchain / Finance
+Schweizer Jobsuche – Digital Assets / Blockchain / Finance + IT-Jobs Region Zürich / Zug
 Läuft Mo/Mi/Fr um 09:00 via Cronjob.
 
 Crontab:

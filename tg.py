@@ -25,10 +25,11 @@ def score_badge(score: int) -> str:
 
 KATEGORIE_HEADER = {
     "Krypto & Digital Assets": "🪙 *Krypto & Digital Assets*",
-    "Tech & Engineering":      "⚙️ *Tech & Engineering*",
+    "Software & Data":         "💻 *Software & Data*",
+    "IT Business & Projekte":  "🧩 *IT Business & Projekte*",
     "Finance & Operations":    "📊 *Finance & Operations*",
 }
-KATEGORIE_ORDER = ["Krypto & Digital Assets", "Tech & Engineering", "Finance & Operations"]
+KATEGORIE_ORDER = list(KATEGORIE_HEADER)
 
 
 def _format_job(job: dict) -> str:
@@ -75,7 +76,9 @@ async def send_jobs(jobs: list[dict]):
     # Gruppieren nach Kategorie
     by_kategorie: dict[str, list] = {}
     for job in jobs:
-        kat = job.get("kategorie") or "Finance & Operations"
+        kat = job.get("kategorie")
+        if kat not in KATEGORIE_HEADER:
+            kat = "Finance & Operations"
         by_kategorie.setdefault(kat, []).append(job)
 
     for kat in KATEGORIE_ORDER:

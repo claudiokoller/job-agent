@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 MIN_SCORE = 6  # Nur Jobs mit Score ≥ 6 werden gesendet
-MAX_JOBS  = 15 # Max. Jobs pro Sendung
 
 
 def _load_profile() -> str:
@@ -85,13 +84,15 @@ Antworte NUR in JSON:
 """
 
 
-def filter_and_score(jobs: list[dict]) -> list[dict]:
+def filter_and_score(jobs: list[dict]) -> tuple[list[dict], set[str]]:
     """
     Lässt Claude alle Jobs bewerten.
-    Gibt nur Jobs mit Score ≥ MIN_SCORE zurück, sortiert nach Score.
+    Gibt zurück: (Jobs mit Score ≥ MIN_SCORE sortiert nach Score,
+                  IDs aller erfolgreich bewerteten Jobs).
+    Jobs aus fehlgeschlagenen Batches fehlen in den IDs → werden später erneut bewertet.
     """
     if not jobs:
-        return []
+        return [], set()
 
     # In Batches von 10 (Prompt-Länge begrenzen)
     results = []
@@ -103,8 +104,9 @@ def filter_and_score(jobs: list[dict]) -> list[dict]:
     filtered = [j for j in results if j.get("anzeigen") and j.get("score", 0) >= MIN_SCORE]
     filtered.sort(key=lambda x: x["score"], reverse=True)
 
-    logger.info(f"{len(filtered)}/{len(jobs)} Jobs nach Claude-Filter (Score ≥ {MIN_SCORE})")
-    return filtered[:MAX_JOBS]
+    scored_ids = {j["id"] for j in results}
+    logger.info(f"{len(filtered)}/{len(scored_ids)} bewerteten Jobs relevant (Score ≥ {MIN_SCORE}), {len(jobs) - len(scored_ids)} nicht bewertet")
+    return filtered, scored_ids
 
 
 def _score_batch(jobs: list[dict]) -> list[dict]:
@@ -134,7 +136,9 @@ def _score_batch(jobs: list[dict]) -> list[dict]:
         job_by_id = {j["id"]: j for j in jobs}
         result = []
         for s in scores:
-            job = job_by_id.get(s["id"], {})
+            job = job_by_id.get(s.get("id"))
+            if not job:
+                continue
             result.append({
                 **job,
                 "score":          s["score"],
@@ -175,7 +179,7 @@ if __name__ == "__main__":
         {"id": "abc6", "titel": "Data Analyst 100%", "firma": "Beispiel Telecom AG", "ort": "Bern", "quelle": "Indeed", "url": "https://example.com", "beschreibung": ""},
     ]
 
-    results = filter_and_score(test_jobs)
+    results, _ = filter_and_score(test_jobs)
     print(f"\n✅ {len(results)} relevante Jobs:\n")
     for j in results:
         print(f"  [{j['score']}/10] {j['firma']}: {j['titel']}")

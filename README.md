@@ -11,7 +11,7 @@ sich aber einfach anpassen.
 1. **Scraping** – Jobs von LinkedIn, Indeed, Google (via [JobSpy](https://github.com/Bunsly/JobSpy)) sowie direkt von Arbeitgeber-Karriereseiten.
 2. **Filtern** – Claude bewertet jeden Job (Score 1–10) anhand deines Profils und sortiert Scams & irrelevante Stellen aus.
 3. **Benachrichtigen** – die besten Treffer kommen gruppiert per Telegram.
-4. **Dedup** – bereits gesehene Jobs (SQLite) werden nicht erneut gesendet.
+4. **Dedup & Warteschlange** – bereits gesehene Jobs (SQLite) werden nicht erneut gesendet. Passende Jobs über dem Limit pro Nachricht warten auf den nächsten Lauf (max. 14 Tage).
 
 ## Setup
 
@@ -35,7 +35,8 @@ Telegram-Bot (via [@BotFather](https://t.me/BotFather)).
 | Dein Profil & Bewertungskriterien | `profile.txt` |
 | Suchbegriffe & Arbeitgeber | `JOBSPY_QUERIES` / `DIRECT_EMPLOYERS` in `scraper.py` |
 | IT-Suchbegriffe, Orte & Umkreis | `IT_QUERIES` / `IT_LOCATIONS` / `IT_DISTANCE_MILES` in `scraper.py` |
-| Mindest-Score & max. Jobs pro Sendung | `MIN_SCORE` / `MAX_JOBS` in `filter.py` |
+| Mindest-Score | `MIN_SCORE` in `filter.py` |
+| Max. Jobs pro Sendung | `MAX_JOBS` in `main.py` |
 
 ## Automatisieren
 

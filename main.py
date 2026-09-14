@@ -14,7 +14,7 @@ load_dotenv()
 from scraper  import scrape_all
 from filter   import filter_and_score
 from db       import init_db, is_seen, mark_seen, is_pending, add_pending, get_pending, remove_pending
-from tg       import send_jobs
+from tg       import send_jobs, send_alert
 
 logging.basicConfig(
     level  = logging.INFO,
@@ -27,6 +27,7 @@ MAX_JOBS = 15  # Max. Jobs pro Sendung – Rest bleibt in der Warteschlange
 
 async def run():
     logger.info("▶️  Job Agent gestartet")
+    problems: list[str] = []  # Werden am Ende per Telegram gemeldet
 
     # 1. Jobs von allen Quellen holen
     raw_jobs = scrape_all()
@@ -34,6 +35,7 @@ async def run():
 
     if not raw_jobs:
         logger.warning("Keine Jobs gefunden")
+        problems.append("Keine Jobs gescrapt – Quellen prüfen")
 
     # 2. Bereits gesehene oder wartende Jobs rausfiltern
     new_jobs = [j for j in raw_jobs if not is_seen(j["id"]) and not is_pending(j["id"])]
@@ -41,7 +43,12 @@ async def run():
 
     # 3. Claude bewertet: relevante Jobs in die Warteschlange,
     #    irrelevante als gesehen markieren (nicht bewertete bleiben offen)
-    relevant, scored_ids = filter_and_score(new_jobs)
+    relevant, scored_ids, errors = filter_and_score(new_jobs)
+    if errors:
+        problems.append(
+            f"{len(new_jobs) - len(scored_ids)} von {len(new_jobs)} Jobs nicht bewertet "
+            f"(werden nächstes Mal wiederholt): {errors[0][:300]}"
+        )
     relevant_ids = {j["id"] for j in relevant}
     for job in relevant:
         add_pending(job)
@@ -51,20 +58,29 @@ async def run():
 
     # 4. Beste Jobs aus der Warteschlange senden (inkl. Rest früherer Läufe)
     pending = get_pending()
-    if not pending:
-        logger.info("Keine relevanten Jobs – fertig")
-        return
+    if pending:
+        to_send = pending[:MAX_JOBS]
+        sent = await send_jobs(to_send)
 
-    to_send = pending[:MAX_JOBS]
-    await send_jobs(to_send)
+        # 5. Nur tatsächlich gesendete Jobs als gesehen markieren
+        for job in sent:
+            mark_seen(job)
+            remove_pending(job["id"])
+        logger.info(f"✅ {len(sent)} Jobs gesendet, {len(pending) - len(sent)} warten auf den nächsten Lauf")
+        if len(sent) < len(to_send):
+            problems.append(f"{len(to_send) - len(sent)} Jobs konnten nicht per Telegram gesendet werden")
+    else:
+        logger.info("Keine relevanten Jobs")
 
-    # 5. Erst nach erfolgreichem Versand als gesehen markieren
-    for job in to_send:
-        mark_seen(job)
-        remove_pending(job["id"])
-    logger.info(f"✅ {len(to_send)} Jobs gesendet, {len(pending) - len(to_send)} warten auf den nächsten Lauf")
+    if problems:
+        await send_alert(problems)
 
 
 if __name__ == "__main__":
     init_db()
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    except Exception as e:
+        logger.exception("Job Agent abgestürzt")
+        asyncio.run(send_alert([f"Lauf abgebrochen – {type(e).__name__}: {e}"]))
+        raise

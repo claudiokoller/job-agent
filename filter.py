@@ -12,13 +12,15 @@ from __future__ import annotations
 import os
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from anthropic import Anthropic
 
 logger = logging.getLogger(__name__)
 
 client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-MIN_SCORE = 6  # Nur Jobs mit Score ≥ 6 werden gesendet
+MIN_SCORE    = 6  # Nur Jobs mit Score ≥ 6 werden gesendet
+MAX_PARALLEL = 4  # Gleichzeitige Claude-Anfragen
 
 
 def _load_profile() -> str:
@@ -84,21 +86,24 @@ Antworte NUR in JSON:
 """
 
 
-def filter_and_score(jobs: list[dict]) -> tuple[list[dict], set[str]]:
+def filter_and_score(jobs: list[dict]) -> tuple[list[dict], set[str], list[str]]:
     """
     Lässt Claude alle Jobs bewerten.
     Gibt zurück: (Jobs mit Score ≥ MIN_SCORE sortiert nach Score,
-                  IDs aller erfolgreich bewerteten Jobs).
+                  IDs aller erfolgreich bewerteten Jobs,
+                  Fehlermeldungen fehlgeschlagener Batches).
     Jobs aus fehlgeschlagenen Batches fehlen in den IDs → werden später erneut bewertet.
     """
     if not jobs:
-        return [], set()
+        return [], set(), []
 
-    # In Batches von 10 (Prompt-Länge begrenzen)
-    results = []
-    for batch in _chunks(jobs, 10):
-        scored = _score_batch(batch)
-        results.extend(scored)
+    # In Batches von 10 (Prompt-Länge begrenzen), parallel bewertet
+    results, errors = [], []
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL) as pool:
+        for scored, error in pool.map(_score_batch, _chunks(jobs, 10)):
+            results.extend(scored)
+            if error:
+                errors.append(error)
 
     # Filtern und sortieren
     filtered = [j for j in results if j.get("anzeigen") and j.get("score", 0) >= MIN_SCORE]
@@ -106,11 +111,11 @@ def filter_and_score(jobs: list[dict]) -> tuple[list[dict], set[str]]:
 
     scored_ids = {j["id"] for j in results}
     logger.info(f"{len(filtered)}/{len(scored_ids)} bewerteten Jobs relevant (Score ≥ {MIN_SCORE}), {len(jobs) - len(scored_ids)} nicht bewertet")
-    return filtered, scored_ids
+    return filtered, scored_ids, errors
 
 
-def _score_batch(jobs: list[dict]) -> list[dict]:
-    """Bewertet einen Batch von Jobs via Claude API."""
+def _score_batch(jobs: list[dict]) -> tuple[list[dict], str | None]:
+    """Bewertet einen Batch von Jobs via Claude API. Gibt (bewertete Jobs, Fehlermeldung) zurück."""
 
     jobs_text = json.dumps([{
         "id":     j["id"],
@@ -150,14 +155,14 @@ def _score_batch(jobs: list[dict]) -> list[dict]:
                 "anzeigen":       s.get("anzeigen", False),
             })
 
-        return result
+        return result, None
 
     except json.JSONDecodeError as e:
         logger.error(f"JSON-Parsing Fehler: {e}")
-        return []
+        return [], f"JSON-Parsing Fehler: {e}"
     except Exception as e:
         logger.error(f"Claude API Fehler: {e}")
-        return []
+        return [], f"Claude API Fehler: {e}"
 
 
 def _chunks(lst: list, n: int):
@@ -179,7 +184,7 @@ if __name__ == "__main__":
         {"id": "abc6", "titel": "Data Analyst 100%", "firma": "Beispiel Telecom AG", "ort": "Bern", "quelle": "Indeed", "url": "https://example.com", "beschreibung": ""},
     ]
 
-    results, _ = filter_and_score(test_jobs)
+    results, _, _ = filter_and_score(test_jobs)
     print(f"\n✅ {len(results)} relevante Jobs:\n")
     for j in results:
         print(f"  [{j['score']}/10] {j['firma']}: {j['titel']}")

@@ -41,36 +41,25 @@ KEYWORDS = [
 
 # Direkte Arbeitgeber-Karriereseiten
 # Alle CH-Banken / Finanzinstitute mit Digital Asset / Blockchain Relevanz
+# Entfernt (liefern via HTML nichts – Kandidaten für eigene API-Scraper):
+#   Bitcoin Suisse, Crypto Finance → bereits via DIRECT_APIS
+#   Sygnum, Taurus, Twint → Cloudflare-Block
+#   ZKB, Luzerner KB, Zuger KB, Basler KB, Hypothekarbank Lenzburg → SPAs ohne Job-Links
+#   AMINA (SSL-Fehler), Metaco (Verbindung abgebrochen), Vontobel (Verbindung verweigert),
+#   Pictet, Swissquote (Domain existiert nicht mehr)
 DIRECT_EMPLOYERS = [
     # ── Crypto-native Banken & Broker ──────────────────────────────────────
-    {"name": "Bitcoin Suisse",      "url": "https://www.bitcoinsuisse.com/careers"},
-    {"name": "Sygnum Bank",         "url": "https://www.sygnum.com/careers/"},
-    {"name": "AMINA Bank",          "url": "https://www.aminabank.com/careers"},  # ehem. SEBA Bank
-    {"name": "Taurus Group",        "url": "https://www.taurusgroup.ch/careers"},
-    {"name": "Crypto Finance AG",   "url": "https://www.cryptofinance.ch/en/careers/"},  # Deutsche Börse Gruppe
-    {"name": "Metaco",              "url": "https://www.metaco.com/careers/"},
     {"name": "Mt Pelerin",          "url": "https://www.mtpelerin.com/careers"},
 
     # ── Grossbanken ─────────────────────────────────────────────────────────
     {"name": "UBS",                 "url": "https://www.ubs.com/global/en/careers/search-jobs.html?q=digital+assets"},
     {"name": "Julius Bär",          "url": "https://www.juliusbaer.com/en/careers/job-opportunities/?q=digital+assets"},
-    {"name": "Vontobel",            "url": "https://careers.vontobel.com/search/?q=digital+assets"},
-    {"name": "Pictet",              "url": "https://careers.pictet.com/search/?q=digital+assets+blockchain"},
     {"name": "Lombard Odier",       "url": "https://www.lombardodier.com/careers.html"},
     {"name": "Maerki Baumann",      "url": "https://www.maerki-baumann.ch/de/ueber-uns/karriere"},
 
-    # ── Kantonalbanken & Regionalbanken ─────────────────────────────────────
-    {"name": "ZKB",                 "url": "https://www.zkb.ch/de/ueber-die-zkb/jobs-karriere.html"},
-    {"name": "Hypothekarbank Lenzburg", "url": "https://www.hbl.ch/de/ueber-uns/karriere"},
-    {"name": "Luzerner KB",         "url": "https://www.lukb.ch/de/ueber-uns/karriere/offene-stellen"},
-    {"name": "Zuger KB",            "url": "https://www.zugerkb.ch/de/ueber-uns/karriere/offene-stellen"},
-    {"name": "Basler KB",           "url": "https://www.bkb.ch/de/ueber-uns/karriere/offene-stellen"},
-
     # ── Infrastruktur & Börsen ───────────────────────────────────────────────
     {"name": "SIX Group",           "url": "https://jobs.six-group.com/search?q=digital+assets+blockchain"},
-    {"name": "Swissquote",          "url": "https://careers.swissquote.com/vacancies?q=digital"},
     {"name": "PostFinance",         "url": "https://www.postfinance.ch/de/ueber-uns/jobs.html"},
-    {"name": "Twint",               "url": "https://www.twint.ch/de/ueber-twint/jobs/"},
 
     # ── Versicherungen / Asset Manager mit DLT-Fokus ────────────────────────
     {"name": "Zurich Insurance",    "url": "https://www.zurich.com/en/careers/search-jobs?q=blockchain+digital"},
@@ -91,9 +80,28 @@ class Job:
     raw:         dict = field(default_factory=dict)
 
 
+# Zusätze, die je nach Quelle bei derselben Stelle variieren
+_TITEL_NOISE = re.compile(
+    r"\(\s*[mwfdx](?:\s*/\s*[mwfdx]){1,3}\s*\)"   # (m/w/d), (w/m/d), (f/m/x)
+    r"|\b[mwfd](?:/[mwfd]){2}\b"                   # m/w/d ohne Klammern
+    r"|\(\s*(?:a|d|all genders|alle)\s*\)"         # (a), (all genders)
+    r"|\d{1,3}\s*(?:[-–]\s*\d{1,3}\s*)?%",         # 80-100%, 100 %
+    re.IGNORECASE,
+)
+_FIRMA_NOISE = re.compile(r"\b(?:ag|gmbh|sa|ltd|inc|llc|schweiz|switzerland)\b", re.IGNORECASE)
+
+
+def _normalize(text: str, noise: re.Pattern) -> str:
+    text = noise.sub(" ", text.lower())
+    return " ".join(re.sub(r"[^\w]+", " ", text).split())
+
+
 def make_id(titel: str, firma: str) -> str:
-    """Eindeutige ID via Hash – verhindert Duplikate."""
-    raw = f"{titel.lower().strip()}{firma.lower().strip()}"
+    """
+    Eindeutige ID via Hash – verhindert Duplikate, auch quellenübergreifend
+    (z.B. "SIX Group AG" = "SIX Group", "Engineer (m/w/d) 100%" = "Engineer").
+    """
+    raw = f"{_normalize(titel, _TITEL_NOISE)}|{_normalize(firma, _FIRMA_NOISE)}"
     return hashlib.md5(raw.encode()).hexdigest()[:12]
 
 
@@ -126,7 +134,8 @@ IT_DISTANCE_MILES = 15  # ~25 km Umkreis
 
 def scrape_jobspy() -> list[Job]:
     """
-    Nutzt python-jobspy um LinkedIn, Indeed und Google Jobs zu scrapen.
+    Nutzt python-jobspy um LinkedIn und Indeed zu scrapen
+    (Google Jobs liefert via JobSpy keine Treffer).
     Krypto-Suchen schweizweit, IT-Suchen im Umkreis von Zürich und Zug.
     """
     if not JOBSPY_AVAILABLE:
@@ -146,9 +155,8 @@ def scrape_jobspy() -> list[Job]:
         city = location.split(",")[0]
         try:
             df = jobspy_scrape(
-                site_name                = ["linkedin", "indeed", "google"],
+                site_name                = ["linkedin", "indeed"],
                 search_term              = query,
-                google_search_term       = f"{query} jobs near {city} since last week",
                 location                 = location,
                 distance                 = distance,
                 results_wanted           = 15,
@@ -306,7 +314,7 @@ def scrape_all() -> list[dict]:
     """Scrapt alle Quellen und gibt eine Liste von Job-Dicts zurück."""
     all_jobs: list[Job] = []
 
-    logger.info("Scraping LinkedIn / Indeed / Google (JobSpy)...")
+    logger.info("Scraping LinkedIn / Indeed (JobSpy)...")
     all_jobs.extend(scrape_jobspy())
 
     logger.info("Scraping direkte APIs (Bitcoin Suisse, Crypto Finance)...")

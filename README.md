@@ -1,35 +1,19 @@
 # Job Alert Agent
 
-Automatisierter Job-Agent für den Schweizer Arbeitsmarkt: sammelt Stellen aus
-mehreren Quellen, lässt sie von Claude gegen ein hinterlegtes Profil bewerten
-und schickt nur die passenden per Telegram – drei Mal pro Woche, vollautomatisch.
-
-Voreingestellt auf **Digital Assets / Blockchain / Fintech in der Schweiz**
-sowie **allgemeine IT-Stellen in der Region Zürich / Zug**; das Suchprofil ist
-eine einzelne Textdatei und lässt sich auf jeden anderen Werdegang umstellen.
+Sucht automatisch Stellen auf dem Schweizer Arbeitsmarkt, lässt sie von Claude
+gegen ein Suchprofil bewerten und schickt die passenden per Telegram.
+Läuft Mo/Mi/Fr per Cronjob.
 
 [![Tests](https://github.com/claudiokoller/job-alert-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/claudiokoller/job-alert-agent/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
----
-
 ## Was der Agent macht
 
-1. **Sammeln** – LinkedIn und Indeed über [JobSpy](https://github.com/speedyapply/JobSpy),
-   dazu direkte Karriere-APIs (Bitcoin Suisse, Crypto Finance) und HTML-Karriereseiten
-   von Schweizer Banken und Finanzinstituten.
-2. **Entdoppeln** – Stellen tauchen quellenübergreifend mehrfach auf. Eine normalisierte
-   ID (`(m/w/d)`, `80–100%`, `AG`/`GmbH` werden weggeschnitten) erkennt dieselbe Stelle
-   auch dann, wenn LinkedIn und Indeed sie unterschiedlich schreiben.
-3. **Bewerten** – Claude bewertet jede neue Stelle gegen das Profil in `profile.txt`:
-   Score 1–10, Kategorie, Kurzzusammenfassung, Anforderungen, Remote-Grad.
-   Irrelevantes (Scams, unpassende Rollenstufen, ortsfremde Stellen) fällt raus.
-4. **Senden** – Die besten Treffer gehen gruppiert nach Kategorie per Telegram raus.
-   Was über das Limit hinausgeht, bleibt in einer Warteschlange und kommt beim
-   nächsten Lauf – nichts geht verloren.
-
-### Beispiel-Benachrichtigung
+1. **Sammeln** – LinkedIn und Indeed über [JobSpy](https://github.com/speedyapply/JobSpy), dazu Karriere-APIs und Karriereseiten von Schweizer Arbeitgebern.
+2. **Entdoppeln** – dieselbe Stelle taucht auf mehreren Portalen auf und wird über eine normalisierte ID zusammengeführt.
+3. **Bewerten** – Claude vergibt Score 1–10, Kategorie und Kurzzusammenfassung; Irrelevantes fällt raus.
+4. **Senden** – die besten Treffer gehen gruppiert per Telegram raus, der Rest wartet auf den nächsten Lauf.
 
 ```
 💼 Job Alert – Montag, 22. September
@@ -40,53 +24,27 @@ eine einzelne Textdatei und lässt sich auf jeden anderen Werdegang umstellen.
    Digital Asset Analyst
    📍 Zug  🔀 Hybrid
 
-   Analyse und Betreuung von Krypto-Anlageprodukten für
-   institutionelle Kunden.
+   Analyse von Krypto-Anlageprodukten für institutionelle Kunden.
    • Erfahrung im Digital-Asset-Umfeld
    • Deutsch und Englisch
    [Stelle ansehen]
 ```
 
----
-
 ## Architektur
 
 ```mermaid
 flowchart LR
-    A["LinkedIn / Indeed<br/>via JobSpy"] --> D["scraper.py"]
-    B["Karriere-APIs<br/>JSON"] --> D
-    C["Karriereseiten<br/>HTML"] --> D
-    D -->|entdoppelt| E["db.py<br/>schon gesehen?"]
-    E -->|nur neue| F["filter.py<br/>Claude bewertet"]
-    F -->|"Score >= 6"| G[("Warteschlange")]
-    F -->|irrelevant| H[("gesehen")]
-    G --> I["tg.py<br/>Telegram"]
-    I -->|gesendet| H
+    A["Jobportale<br/>Karriereseiten"] --> B["scraper.py<br/>sammeln + entdoppeln"]
+    B --> C["db.py<br/>schon gesehen?"]
+    C --> D["filter.py<br/>Claude bewertet"]
+    D --> E["tg.py<br/>Telegram"]
 ```
 
-Details zu Datenfluss und Designentscheiden: **[docs/architecture.md](docs/architecture.md)**
-
-### Module
-
-| Datei | Aufgabe |
-|---|---|
-| [main.py](main.py) | Ablaufsteuerung: scrapen → filtern → bewerten → senden |
-| [scraper.py](scraper.py) | Quellen (JobSpy, JSON-APIs, HTML), Normalisierung, Deduplizierung |
-| [filter.py](filter.py) | Bewertung durch Claude, Profil-Prompt, Scoring |
-| [db.py](db.py) | SQLite: gesehene Stellen und Warteschlange |
-| [tg.py](tg.py) | Telegram-Ausgabe, Gruppierung, Nachrichten-Splitting |
-| [profile.example.txt](profile.example.txt) | Vorlage für das Suchprofil, nach dem bewertet wird |
-| [tests/](tests/) | Unit-Tests für Deduplizierung, Warteschlange und Nachrichten-Splitting |
-
----
+Mehr Details: [docs/architecture.md](docs/architecture.md)
 
 ## Setup
 
 ```bash
-git clone https://github.com/claudiokoller/job-alert-agent.git
-cd job-alert-agent
-
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env                  # API-Keys eintragen
@@ -95,42 +53,18 @@ cp profile.example.txt profile.txt    # eigenes Suchprofil eintragen
 python main.py
 ```
 
-Benötigt Python 3.11+, einen [Anthropic API-Key](https://console.anthropic.com)
+Braucht Python 3.11+, einen [Anthropic API-Key](https://console.anthropic.com)
 und einen Telegram-Bot (via [@BotFather](https://t.me/BotFather)).
 
-### Suchprofil
+Wonach gesucht wird, steht nicht im Code, sondern in `profile.txt` – Werdegang,
+gesuchte Bereiche, passende Rollenstufen. Die Datei geht direkt in den
+Bewertungs-Prompt ein und bleibt lokal.
 
-Wonach gesucht wird, steht nicht im Code, sondern in `profile.txt`: Werdegang,
-gesuchte Bereiche und Regionen, passende Rollenstufen. Die Datei geht direkt in
-den Bewertungs-Prompt ein – wer den Agenten auf ein anderes Profil ausrichtet,
-ändert nur diese eine Datei. Vorlage ist
-[profile.example.txt](profile.example.txt); `profile.txt` selbst ist gitignored
-und bleibt lokal.
+Automatisch laufen lassen, z.B. Mo/Mi/Fr um 09:00:
 
-### Weitere Stellschrauben
-
-| Was | Wo |
-|-----|-----|
-| Suchbegriffe & Arbeitgeber | `JOBSPY_QUERIES` / `DIRECT_EMPLOYERS` in `scraper.py` |
-| IT-Suchbegriffe, Orte & Umkreis | `IT_QUERIES` / `IT_LOCATIONS` / `IT_DISTANCE_MILES` in `scraper.py` |
-| Mindest-Score | `MIN_SCORE` in `filter.py` |
-| Max. Stellen pro Sendung | `MAX_JOBS` in `main.py` |
-
-### Automatisch laufen lassen
-
-Mo/Mi/Fr um 09:00:
-
-```bash
-# Linux (crontab -e)
-0 9 * * 1,3,5 /usr/bin/python3 /pfad/zu/job_agent/main.py >> /var/log/job_agent.log 2>&1
 ```
-
-```powershell
-# Windows
-schtasks /Create /TN "JobAgent" /TR "python C:\pfad\zu\job_agent\main.py" /SC WEEKLY /D MON,WED,FRI /ST 09:00
+0 9 * * 1,3,5 /usr/bin/python3 /pfad/zu/job_agent/main.py >> job_agent.log 2>&1
 ```
-
----
 
 ## Tests
 
@@ -138,43 +72,17 @@ schtasks /Create /TN "JobAgent" /TR "python C:\pfad\zu\job_agent\main.py" /SC WE
 python -m unittest discover -s tests
 ```
 
-28 Tests, keine zusätzlichen Abhängigkeiten und kein Netzzugriff – sie decken
-genau die Mechanismen ab, auf denen der Agent steht: dass dieselbe Stelle aus
-zwei Quellen eine ID bekommt, dass die Warteschlange nach Score ausliefert,
-dass eine Stelle erst nach dem Versand als gesehen gilt und dass beim Aufteilen
-langer Telegram-Nachrichten keine Stelle verloren geht.
+28 Tests, ohne zusätzliche Abhängigkeiten und ohne Netzzugriff.
 
 ## Designentscheide
 
-**Nichts geht still verloren.** Eine Stelle wird erst als „gesehen“ markiert, wenn
-sie tatsächlich per Telegram angekommen ist. Schlägt die Bewertung oder der Versand
-fehl, bleibt sie offen und wird beim nächsten Lauf erneut versucht.
+- **Nichts geht still verloren.** Eine Stelle gilt erst als gesehen, wenn sie per Telegram angekommen ist. Schlägt Bewertung oder Versand fehl, wird sie beim nächsten Lauf erneut versucht.
+- **Warteschlange statt Abschneiden.** Pro Lauf gehen maximal 15 Stellen raus, der Rest wartet nach Score sortiert.
+- **Selbstüberwachung.** Leere Scrapes, API- und Telegram-Fehler meldet der Agent per Telegram – sonst merkt man einen stillen Ausfall erst nach Wochen.
 
-**Warteschlange statt Abschneiden.** Pro Lauf gehen maximal 15 Stellen raus, damit
-die Benachrichtigung lesbar bleibt. Der Rest wandert nicht in den Papierkorb, sondern
-in eine nach Score sortierte Warteschlange.
-
-**Bewertung in parallelen Batches.** Jeweils 10 Stellen pro Claude-Anfrage, bis zu
-4 Anfragen gleichzeitig. Fällt ein Batch aus, betrifft das nur diesen Batch.
-
-**Selbstüberwachung.** Leere Scrapes, fehlgeschlagene Bewertungen und Telegram-Fehler
-meldet der Agent selbst per Telegram – sonst merkt man erst nach Wochen, dass er
-stillschweigend nichts mehr findet.
-
-**Robuste Ausgabe.** Schlägt Telegram-Markdown fehl (Sonderzeichen in Stellentiteln),
-wird die Nachricht automatisch als Klartext erneut versendet.
-
-## Grenzen
-
-- HTML-Karriereseiten brechen, wenn Arbeitgeber ihr Layout ändern – ein generischer
-  Parser filtert Job-Links heuristisch heraus. Seiten hinter Cloudflare oder als
-  reine SPA liefern nichts und sind in [scraper.py](scraper.py) dokumentiert.
-- Bewertet werden Titel, Firma und Ort, nicht der volle Stellentext – schnell und
-  günstig, dafür gelegentlich eine Fehleinschätzung.
-- Getestet sind die Bausteine ohne Netzzugriff (Deduplizierung, Warteschlange,
-  Nachrichten-Splitting). Scraping und Bewertung durch Claude sind nicht
-  abgedeckt – dafür hat jedes Modul einen `__main__`-Block zum manuellen
-  Ausprobieren (`python scraper.py`, `python filter.py`, `python tg.py`).
+Bekannte Grenzen: HTML-Karriereseiten brechen bei Layout-Änderungen, und bewertet
+werden nur Titel, Firma und Ort statt des vollen Inserats – günstig, dafür
+gelegentlich eine Fehleinschätzung.
 
 ## Lizenz
 

@@ -8,6 +8,7 @@ Voreingestellt auf **Digital Assets / Blockchain / Fintech in der Schweiz**
 sowie **allgemeine IT-Stellen in der Region Zürich / Zug**; das Suchprofil ist
 eine einzelne Textdatei und lässt sich auf jeden anderen Werdegang umstellen.
 
+[![Tests](https://github.com/claudiokoller/job-alert-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/claudiokoller/job-alert-agent/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
@@ -75,6 +76,7 @@ Details zu Datenfluss und Designentscheiden: **[docs/architecture.md](docs/archi
 | [db.py](db.py) | SQLite: gesehene Stellen und Warteschlange |
 | [tg.py](tg.py) | Telegram-Ausgabe, Gruppierung, Nachrichten-Splitting |
 | [profile.example.txt](profile.example.txt) | Vorlage für das Suchprofil, nach dem bewertet wird |
+| [tests/](tests/) | Unit-Tests für Deduplizierung, Warteschlange und Nachrichten-Splitting |
 
 ---
 
@@ -130,6 +132,18 @@ schtasks /Create /TN "JobAgent" /TR "python C:\pfad\zu\job_agent\main.py" /SC WE
 
 ---
 
+## Tests
+
+```bash
+python -m unittest discover -s tests
+```
+
+28 Tests, keine zusätzlichen Abhängigkeiten und kein Netzzugriff – sie decken
+genau die Mechanismen ab, auf denen der Agent steht: dass dieselbe Stelle aus
+zwei Quellen eine ID bekommt, dass die Warteschlange nach Score ausliefert,
+dass eine Stelle erst nach dem Versand als gesehen gilt und dass beim Aufteilen
+langer Telegram-Nachrichten keine Stelle verloren geht.
+
 ## Designentscheide
 
 **Nichts geht still verloren.** Eine Stelle wird erst als „gesehen“ markiert, wenn
@@ -157,8 +171,10 @@ wird die Nachricht automatisch als Klartext erneut versendet.
   reine SPA liefern nichts und sind in [scraper.py](scraper.py) dokumentiert.
 - Bewertet werden Titel, Firma und Ort, nicht der volle Stellentext – schnell und
   günstig, dafür gelegentlich eine Fehleinschätzung.
-- Keine automatisierten Tests; jedes Modul hat stattdessen einen `__main__`-Block
-  zum manuellen Ausprobieren (`python scraper.py`, `python filter.py`, `python tg.py`).
+- Getestet sind die Bausteine ohne Netzzugriff (Deduplizierung, Warteschlange,
+  Nachrichten-Splitting). Scraping und Bewertung durch Claude sind nicht
+  abgedeckt – dafür hat jedes Modul einen `__main__`-Block zum manuellen
+  Ausprobieren (`python scraper.py`, `python filter.py`, `python tg.py`).
 
 ## Lizenz
 

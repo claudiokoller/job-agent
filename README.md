@@ -8,7 +8,7 @@ Läuft dreimal pro Woche automatisch auf einem kleinen Linux-Server.
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-## Was der Agent macht
+## Was es macht
 
 1. **Sammeln** – LinkedIn und Indeed über [JobSpy](https://github.com/speedyapply/JobSpy), dazu Karriere-APIs und Karriereseiten von Schweizer Arbeitgebern.
 2. **Entdoppeln** – dieselbe Stelle taucht auf mehreren Portalen auf und wird über eine normalisierte ID zusammengeführt.

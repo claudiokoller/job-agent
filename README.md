@@ -4,7 +4,7 @@ Sucht automatisch Stellen auf dem Schweizer Arbeitsmarkt, lässt sie von Claude
 gegen ein Suchprofil bewerten und schickt die passenden per Telegram.
 Läuft Mo/Mi/Fr per Cronjob.
 
-[![Tests](https://github.com/claudiokoller/job-alert-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/claudiokoller/job-alert-agent/actions/workflows/tests.yml)
+[![Tests](https://github.com/claudiokoller/job-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/claudiokoller/job-agent/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 

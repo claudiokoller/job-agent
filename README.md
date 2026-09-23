@@ -2,7 +2,7 @@
 
 Sucht automatisch Stellen auf dem Schweizer Arbeitsmarkt, lässt sie von Claude
 gegen ein Suchprofil bewerten und schickt die passenden per Telegram.
-Läuft Mo/Mi/Fr per Cronjob.
+Läuft dreimal pro Woche automatisch auf einem kleinen Linux-Server.
 
 [![Tests](https://github.com/claudiokoller/job-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/claudiokoller/job-agent/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
@@ -60,11 +60,14 @@ Wonach gesucht wird, steht nicht im Code, sondern in `profile.txt` – Werdegang
 gesuchte Bereiche, passende Rollenstufen. Die Datei geht direkt in den
 Bewertungs-Prompt ein und bleibt lokal.
 
-Automatisch laufen lassen, z.B. Mo/Mi/Fr um 09:00:
+Automatisch laufen lassen, z.B. Mo/Mi/Fr um 09:00 – per Cron:
 
 ```
 0 9 * * 1,3,5 /usr/bin/python3 /pfad/zu/job_agent/main.py >> job_agent.log 2>&1
 ```
+
+Produktiv läuft der Agent bei mir stattdessen über einen systemd-Timer;
+beides tut dasselbe.
 
 ## Tests
 
@@ -78,7 +81,7 @@ python -m unittest discover -s tests
 
 - **Nichts geht still verloren.** Eine Stelle gilt erst als gesehen, wenn sie per Telegram angekommen ist. Schlägt Bewertung oder Versand fehl, wird sie beim nächsten Lauf erneut versucht.
 - **Warteschlange statt Abschneiden.** Pro Lauf gehen maximal 15 Stellen raus, der Rest wartet nach Score sortiert.
-- **Selbstüberwachung.** Leere Scrapes, API- und Telegram-Fehler meldet der Agent per Telegram – sonst merkt man einen stillen Ausfall erst nach Wochen.
+- **Der Agent meldet eigene Fehler.** Findet er nichts, oder klemmt die API oder Telegram, schickt er eine Warnung an denselben Chat – sonst merkt man einen stillen Ausfall erst nach Wochen.
 
 Bekannte Grenzen: HTML-Karriereseiten brechen bei Layout-Änderungen, und bewertet
 werden nur Titel, Firma und Ort statt des vollen Inserats – günstig, dafür

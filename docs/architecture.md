@@ -1,8 +1,9 @@
 # Architektur
 
-Ein Cron-Eintrag startet `main.py`, der Lauf dauert wenige Minuten, der Zustand
-liegt in einer SQLite-Datei. Kein Server, keine Queue – für drei Läufe pro Woche
-wäre alles andere Overhead.
+Ein Timer startet `main.py` dreimal pro Woche, der Lauf dauert wenige Minuten,
+danach ist der Prozess wieder weg. Der Zustand liegt in einer SQLite-Datei.
+Kein Dauerprozess, keine Queue, kein Container – für drei Läufe pro Woche wäre
+alles andere Overhead.
 
 ## Ablauf eines Laufs
 

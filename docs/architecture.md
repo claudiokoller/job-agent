@@ -5,7 +5,7 @@ danach ist der Prozess wieder weg. Der Zustand liegt in einer SQLite-Datei.
 Kein Dauerprozess, keine Queue, kein Container – für drei Läufe pro Woche wäre
 alles andere Overhead.
 
-## Ablauf eines Laufs
+## Ablauf
 
 ```mermaid
 flowchart TD
@@ -53,3 +53,10 @@ Jede Quelle ist einzeln gekapselt – bricht ein Scraper weg, laufen die übrige
 weiter. Am Ende sammelt `main.py` alle Probleme (keine Stellen gescrapt, Stellen
 nicht bewertet, Versand fehlgeschlagen, Lauf abgestürzt) und schickt sie als
 Warnung per Telegram.
+
+## Erweitern
+
+- **Neue Quelle:** Scraper-Funktion in `scraper.py` ergänzen – sie muss nur
+  Titel, Firma, Ort und Link liefern, das Entdoppeln passiert zentral.
+- **Anderes Suchprofil:** `profile.txt` anpassen, kein Code nötig.
+- **Anderer Kanal:** `tg.py` ersetzen – der Rest des Ablaufs bleibt gleich.

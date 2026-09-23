@@ -1,4 +1,4 @@
-# Job Alert Agent
+# Job Agent
 
 Sucht automatisch Stellen auf dem Schweizer Arbeitsmarkt, lässt sie von Claude
 gegen ein Suchprofil bewerten und schickt die passenden per Telegram.
@@ -42,6 +42,16 @@ flowchart LR
 
 Mehr Details: [docs/architecture.md](docs/architecture.md)
 
+## Module
+
+| Datei | Aufgabe |
+|---|---|
+| `main.py` | Ruft die vier Schritte nacheinander auf, meldet Probleme |
+| `scraper.py` | Portale, Karriere-APIs und Karriereseiten, inkl. Entdoppeln |
+| `db.py` | SQLite: gesehene Stellen und Warteschlange |
+| `filter.py` | Bewertung durch Claude (Score, Kategorie, Kurzfassung) |
+| `tg.py` | Versand via Telegram |
+
 ## Setup
 
 ```bash
@@ -63,7 +73,7 @@ Bewertungs-Prompt ein und bleibt lokal.
 Automatisch laufen lassen, z.B. Mo/Mi/Fr um 09:00 – per Cron:
 
 ```
-0 9 * * 1,3,5 /usr/bin/python3 /pfad/zu/job_agent/main.py >> job_agent.log 2>&1
+0 9 * * 1,3,5 /usr/bin/python3 /pfad/zu/job-agent/main.py >> job-agent.log 2>&1
 ```
 
 Produktiv läuft der Agent bei mir stattdessen über einen systemd-Timer;

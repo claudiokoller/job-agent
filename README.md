@@ -15,6 +15,8 @@ Läuft dreimal pro Woche automatisch auf einem kleinen Linux-Server.
 3. **Bewerten** – Claude vergibt Score 1–10, Kategorie und Kurzzusammenfassung; Irrelevantes fällt raus.
 4. **Senden** – die besten Treffer gehen gruppiert per Telegram raus, der Rest wartet auf den nächsten Lauf.
 
+## Beispiel
+
 ```
 💼 Job Alert – Montag, 22. September
    12 neue Stellen gefunden

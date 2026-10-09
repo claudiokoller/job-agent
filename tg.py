@@ -5,6 +5,8 @@ Eigener Bot / Chat separiert von News und Invoice Agent.
 """
 
 import os
+import re
+import html
 import logging
 import asyncio
 from datetime import datetime
@@ -24,12 +26,17 @@ def score_badge(score: int) -> str:
 
 
 KATEGORIE_HEADER = {
-    "Krypto & Digital Assets": "🪙 *Krypto & Digital Assets*",
-    "Software & Data":         "💻 *Software & Data*",
-    "IT Business & Projekte":  "🧩 *IT Business & Projekte*",
-    "Finance & Operations":    "📊 *Finance & Operations*",
+    "Krypto & Digital Assets": "🪙 <b>Krypto &amp; Digital Assets</b>",
+    "Software & Data":         "💻 <b>Software &amp; Data</b>",
+    "IT Business & Projekte":  "🧩 <b>IT Business &amp; Projekte</b>",
+    "Finance & Operations":    "📊 <b>Finance &amp; Operations</b>",
 }
 KATEGORIE_ORDER = list(KATEGORIE_HEADER)
+
+
+def _esc(text) -> str:
+    """Escaped Scraper-/Claude-Text für Telegram-HTML (z.B. _, *, <, & in Firmennamen)."""
+    return html.escape(str(text))
 
 
 def _format_job(job: dict) -> str:
@@ -37,24 +44,24 @@ def _format_job(job: dict) -> str:
     remote_icons = {"Remote": "🏠 Remote", "Hybrid": "🔀 Hybrid", "Vor Ort": "🏢 Vor Ort"}
     remote_str = remote_icons.get(job.get("remote", ""), "")
 
-    ort_line = f"📍 {job['ort']}"
+    ort_line = f"📍 {_esc(job['ort'])}"
     if remote_str:
         ort_line += f"  {remote_str}"
 
     block = (
-        f"{badge} *{job['firma']}*\n"
-        f"_{job['titel']}_\n"
+        f"{badge} <b>{_esc(job['firma'])}</b>\n"
+        f"<i>{_esc(job['titel'])}</i>\n"
         f"{ort_line}"
     )
     zusammenfassung = job.get("zusammenfassung", "").strip()
     if zusammenfassung:
-        block += f"\n\n{zusammenfassung}"
+        block += f"\n\n{_esc(zusammenfassung)}"
 
     anforderungen = job.get("anforderungen", [])
     if anforderungen:
-        block += "\n" + "\n".join(f"• {r}" for r in anforderungen)
+        block += "\n" + "\n".join(f"• {_esc(r)}" for r in anforderungen)
 
-    block += f"\n[Stelle ansehen]({job['url']})"
+    block += f'\n<a href="{_esc(job["url"])}">Stelle ansehen</a>'
     return block
 
 
@@ -79,19 +86,20 @@ def _pack_messages(header: str, group: list[dict]) -> list[tuple[str, list[dict]
 
 
 async def _send_text(bot: Bot, text: str) -> bool:
-    """Sendet mit Markdown, bei Fehler als Klartext. Gibt zurück, ob es geklappt hat."""
+    """Sendet als HTML, bei Fehler als Klartext. Gibt zurück, ob es geklappt hat."""
     try:
         await bot.send_message(
             chat_id                  = TELEGRAM_CHAT_ID,
             text                     = text,
-            parse_mode               = ParseMode.MARKDOWN,
+            parse_mode               = ParseMode.HTML,
             disable_web_page_preview = True,
         )
         return True
     except Exception as e:
-        logger.error(f"Telegram Fehler (Markdown): {e}")
+        logger.error(f"Telegram Fehler (HTML): {e}")
     try:
-        plain = text.replace("*", "").replace("_", "")
+        plain = re.sub(r'<a href="([^"]*)">[^<]*</a>', r"\1", text)  # Link als URL behalten
+        plain = html.unescape(re.sub(r"<[^>]+>", "", plain))
         await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=plain, disable_web_page_preview=True)
         return True
     except Exception as e:
@@ -122,8 +130,8 @@ async def send_jobs(jobs: list[dict]) -> list[dict]:
     # Einleitungsnachricht
     await bot.send_message(
         chat_id    = TELEGRAM_CHAT_ID,
-        text       = f"💼 *Job Alert – {date}*\n_{len(jobs)} neue Stellen gefunden_",
-        parse_mode = ParseMode.MARKDOWN,
+        text       = f"💼 <b>Job Alert – {date}</b>\n<i>{len(jobs)} neue Stellen gefunden</i>",
+        parse_mode = ParseMode.HTML,
     )
 
     # Gruppieren nach Kategorie

@@ -128,12 +128,13 @@ def _score_batch(jobs: list[dict]) -> tuple[list[dict], str | None]:
     try:
         response = client.messages.create(
             model      = "claude-sonnet-5",
-            max_tokens = 4000,
+            max_tokens = 8000,
             system     = SYSTEM_PROMPT,
             messages   = [{"role": "user", "content": f"Bewerte diese Jobs:\n{jobs_text}"}],
         )
 
-        raw = response.content[0].text.strip()
+        # Antwort kann Thinking-Blöcke enthalten – nur Text-Blöcke auswerten
+        raw = "".join(b.text for b in response.content if b.type == "text").strip()
         raw = raw.replace("```json", "").replace("```", "").strip()
         scores = json.loads(raw)
 
